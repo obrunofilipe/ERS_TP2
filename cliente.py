@@ -3,7 +3,7 @@ import sys
 import threading
 
 neighbours = []
-SERVER_IP ='10.0.5.10'
+SERVER_IP ='10.0.11.10'
 
 def get_neighbours():
     s : socket.socket
@@ -13,10 +13,11 @@ def get_neighbours():
     s.bind(('',2000))
 
     msg = "Pedir vizinhos"
-
+    global neighbours
     s.sendto(msg.encode('utf-8'), (SERVER_IP, 2000))
     resposta, server_add = s.recvfrom(1024)
     neighbours = resposta.decode('utf-8').split(" ")
+
     s.close()
 
 
