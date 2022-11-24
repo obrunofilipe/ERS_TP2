@@ -3,7 +3,7 @@ import sys
 import threading
 
 neighbours = []
-SERVER_IP ='10.0.11.10'
+
 
 def get_neighbours():
     s : socket.socket
@@ -21,12 +21,14 @@ def get_neighbours():
     s.close()
 
 
-def get_video():
+def request_video():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.bind(('',3000))
 
-    msg = "pedido video"
-    s.sendto(msg.encode('utf-8'), (SERVER_IP,3000))
+
+    #id;nome-video
+    msg = ""
+    s.sendto(msg.encode('utf-8'), (neighbours[0],5000))
     threading.Thread(target=recv_video_processing,args=[s]).start()
 
 def recv_video_processing(s):
@@ -40,7 +42,8 @@ def recv_video_processing(s):
 def main():
 
     get_neighbours()
-    get_video()
+    request_video()
+
 
 if __name__ == "__main__":
     main()

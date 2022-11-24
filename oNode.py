@@ -5,6 +5,7 @@ import monitoring
 import time
 
 neighbours = []
+interface_status = {}
 
 """
 Estrutura de monitoring:
@@ -19,9 +20,15 @@ Estrutura de monitoring:
 }
 
 """
-
 monitoring_rec = {}
 endereco = "10.0.11.10"
+
+
+def init_status():
+    global interface_status
+    for n in neighbours:
+        interface_status[n] = 0 # inicializar todas as interfaces como inativas
+
 
 def get_neighbours():
     s : socket.socket
@@ -38,21 +45,36 @@ def get_neighbours():
     neighbours = resposta.decode('utf-8').split(" ")
 
 
+ 
+def request_video_processing(s , msg, add):
+    stream_flag = False
+    for (_,flag) in interface_status.items():
+        if flag == 1 :
+            stream_flag = True
 
-def difusion_video_processing(s , msg, add):
-    print(neighbours)
-    for ip in neighbours:
-        if ip != add:
-            print("Enviei para ::", ip)
-            s.sendto(msg, (ip,3000))
+    if stream_flag:
+        #ativar interaface do cliente para difundir o video
+        interface_status[add[0]] = 1        
     
+    else:
+        # ativar a interface mais próxima e a do cliente 
+        # pedir o video ao nodo seguinte no caminhoa até ao servidor
+        # ficar à espera do vídeo
+        server_id = msg.decode("utf-8").split(";")[0]
+        next_step = monitoring_rec[server_id]['ip']
+        interface_status['ip'] = 1 
+        s.sendto(msg,(next_step,5000))
+        #service to send video
+        
+        
 
 
 
-def difusion_video_service():
+
+def request_video_service():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     HOST = ''
-    PORT = 3000
+    PORT = 5000
 
     s.bind((HOST,PORT))
 
@@ -61,7 +83,8 @@ def difusion_video_service():
 
         print("Recebi::",msg.decode('utf-8'))
 
-        threading.Thread(target=difusion_video_processing,args=(s,msg,add)).start()
+        threading.Thread(target=resquest_video_processing,args=(s,msg,add)).start()
+
 
 def probe_processing(s,msg,address):
     global monitoring_rec
@@ -80,11 +103,16 @@ def probe_processing(s,msg,address):
 
 
    
-    delay = (send_timeStamp - rcv_timeStamp) * 1e3
+    incoming_delay = (send_timeStamp - rcv_timeStamp) * 1e3
+
 
 
     if id in monitoring_rec:
         server_monitoring = monitoring_rec[id]
+        old_delay = server_monitoring['delay']
+        alpha = 0.1
+        delay = alpha*old_delay + (1-alpha)*incoming_delay
+
         if delay < server_monitoring['delay']:
             monitoring_rec[id]['delay'] = delay
             monitoring_rec[id]['steps'] = steps+1
@@ -96,12 +124,6 @@ def probe_processing(s,msg,address):
         monitoring_rec[id]['steps'] = steps+1
         monitoring_rec[id]['ip'] = address[0]
         print(f"Server Record {id} Criado:: delay:{delay}, steps:{steps+1}, ip:{address[0]}")
-    
-
-
-
-
-
 
 
 
@@ -119,9 +141,11 @@ def probe_service():
 
 def main():
     get_neighbours()
+    init_status()
     print(neighbours)
-    threading.Thread(target=difusion_video_service, args=()).start()
+    threading.Thread(target=request_video_service, args=()).start()
     threading.Thread(target=probe_service, args=()).start()
+
 
 
 
