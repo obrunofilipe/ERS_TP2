@@ -16,20 +16,21 @@ def get_neighbours():
     neighbours = n['servers'][id]
 
 
-def get_video_processing(s : socket, msg : bytes, add : tuple):
+def request_video_processing(s : socket, msg : bytes, add : tuple):
     while True :
-        s.sendto("video".encode('utf-8'),(difusion_node,3000))
+        s.sendto("video".encode('utf-8'),(neighbours[0],6000))
+        print(f'sending video to {add}')
         time.sleep(2)
 
-def get_video_service():
+def request_video_service():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    port = 3000
+    port = 5000
     s.bind((endereco, port))
     print(f"Estou à escuta no {endereco}:{port}")
 
     while True:
         msg, add = s.recvfrom(1024)
-        threading.Thread(target=get_video_processing,args=(s,msg,add)).start()
+        threading.Thread(target=request_video_processing,args=(s,msg,add)).start()
     
     s.close()
 
@@ -88,7 +89,7 @@ def main():
     get_neighbours()
     print(neighbours)
     threading.Thread(target=bootstrap_service, args=()).start()
-    threading.Thread(target=get_video_service, args=()).start()
+    threading.Thread(target=request_video_service, args=()).start()
     threading.Thread(target=send_probe_service, args=()).start()
 
 

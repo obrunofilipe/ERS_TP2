@@ -5,6 +5,12 @@ import monitoring
 import time
 
 neighbours = []
+"""
+{
+    "ip" : 1/0
+}
+"""
+
 interface_status = {}
 
 """
@@ -52,22 +58,20 @@ def request_video_processing(s , msg, add):
         if flag == 1 :
             stream_flag = True
 
-    if stream_flag:
+    if not stream_flag:
         #ativar interaface do cliente para difundir o video
-        interface_status[add[0]] = 1        
-    
-    else:
         # ativar a interface mais próxima e a do cliente 
         # pedir o video ao nodo seguinte no caminhoa até ao servidor
         # ficar à espera do vídeo
         server_id = msg.decode("utf-8").split(";")[0]
         next_step = monitoring_rec[server_id]['ip']
-        interface_status['ip'] = 1 
+        interface_status[next_step] = 1 
         s.sendto(msg,(next_step,5000))
+        threading.Thread(target=difusion_service,args=()).start()
         #service to send video
-        
-        
-
+    else:
+        print(f'JA TENHO O VIDEO ATIVEI A INTERFACE::: {add[0]}')
+    interface_status[add[0]] = 1
 
 
 
@@ -83,7 +87,7 @@ def request_video_service():
 
         print("Recebi::",msg.decode('utf-8'))
 
-        threading.Thread(target=resquest_video_processing,args=(s,msg,add)).start()
+        threading.Thread(target=request_video_processing,args=(s,msg,add)).start()
 
 
 def probe_processing(s,msg,address):
@@ -98,7 +102,7 @@ def probe_processing(s,msg,address):
 
     packet = monitoring.make_probe(id,rcv_timeStamp,steps+1) #
     for n in neighbours:
-        if n != address[0]:
+        if n != address[0] and steps < 6:
             s.sendto(packet,(n,port))
 
 
@@ -120,10 +124,10 @@ def probe_processing(s,msg,address):
             print(f"Server Record {id} Atualizado:: delay:{delay}, steps:{steps+1}, ip:{address[0]}")
     else:
         monitoring_rec[id] = {}
-        monitoring_rec[id]['delay'] = delay
+        monitoring_rec[id]['delay'] = incoming_delay
         monitoring_rec[id]['steps'] = steps+1
         monitoring_rec[id]['ip'] = address[0]
-        print(f"Server Record {id} Criado:: delay:{delay}, steps:{steps+1}, ip:{address[0]}")
+        print(f"Server Record {id} Criado:: delay:{incoming_delay}, steps:{steps+1}, ip:{address[0]}")
 
 
 
@@ -138,6 +142,22 @@ def probe_service():
         msg, address = s.recvfrom(1024)
         print("recebi probe:",msg)
         threading.Thread(target=probe_processing,args=(s,msg,address)).start()
+
+def difusion_processing(s,msg,add): #controlled floading
+    for (ip,status) in interface_status.items():
+        if ip != add[0] and status:
+            s.sendto(msg,(ip,6000))
+
+
+def difusion_service():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    HOST = ''
+    PORT = 6000
+
+    s.bind((HOST,PORT))
+    while True:
+        msg, add = s.recvfrom(4096)
+        threading.Thread(target=difusion_processing,args=(s,msg,add)).start()
 
 def main():
     get_neighbours()
