@@ -4,7 +4,7 @@ import threading
 
 neighbours = []
 
-
+ 
 def get_neighbours():
     s : socket.socket
     msg : str
