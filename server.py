@@ -3,7 +3,7 @@ import threading
 import time
 import json
 import monitoring
-
+import Servidor
 difusion_node = "10.0.5.1"
 id = '1'  
 endereco = "10.0.11.10"
@@ -17,10 +17,9 @@ def get_neighbours():
 
 
 def request_video_processing(s : socket, msg : bytes, add : tuple):
-    while True :
-        s.sendto("video".encode('utf-8'),(neighbours[0],6000))
-        print(f'sending video to {add}')
-        time.sleep(2)
+    print("RECEBI UM PEDIDO", msg)
+    server = Servidor.Servidor(msg.decode('utf-8').split(";")[1], neighbours[0])
+    server.main()
 
 def request_video_service():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

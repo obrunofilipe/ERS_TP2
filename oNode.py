@@ -55,7 +55,7 @@ def get_neighbours():
 def request_video_processing(s , msg, add):
     stream_flag = False
     for (_,flag) in interface_status.items():
-        if flag == 1 :
+        if flag == 1:
             stream_flag = True
 
     if not stream_flag:
@@ -85,7 +85,7 @@ def request_video_service():
     while True:
         msg, add = s.recvfrom(1024)
 
-        print("Recebi::",msg.decode('utf-8'))
+        print("\n\n\n Recebi:: \n\n\n",msg.decode('utf-8'))
 
         threading.Thread(target=request_video_processing,args=(s,msg,add)).start()
 
@@ -156,7 +156,7 @@ def difusion_service():
 
     s.bind((HOST,PORT))
     while True:
-        msg, add = s.recvfrom(4096)
+        msg, add = s.recvfrom(20480)
         threading.Thread(target=difusion_processing,args=(s,msg,add)).start()
 
 def main():

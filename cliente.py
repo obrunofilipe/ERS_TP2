@@ -2,6 +2,9 @@ import socket
 import sys
 import threading
 
+from tkinter import Tk
+from ClienteGUI import ClienteGUI
+
 neighbours = []
 SERVER_IP = "10.0.11.10"
 
@@ -24,20 +27,30 @@ def get_neighbours():
 
 def request_video():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.bind(('',6000))
+    s.bind(('',5000))
 
 
     #id;nome-video
-    msg = "1;video.mp4"
+    msg = "1;movie.Mjpeg"
     s.sendto(msg.encode('utf-8'), (neighbours[0],5000))
     threading.Thread(target=recv_video_processing,args=[s]).start()
 
 def recv_video_processing(s):
 
     while True:
-        msg,add = s.recvfrom(4096)
-    
-        print("Mensagem recebida do:",add,"mensagem::",msg)
+        try:
+            addr = '127.0.0.1'
+            port = 6000
+        except:
+            print("[Usage: Cliente.py]\n")	
+
+        root = Tk()
+	
+        # Create a new client
+        app = ClienteGUI(root, addr, port)
+        app.master.title("Cliente Exemplo")	
+        root.mainloop()
+
 
 
 
