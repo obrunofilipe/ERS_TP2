@@ -24,7 +24,7 @@ class ClienteGUI:
 		self.openRtpPort()
 		self.playMovie()
 		self.frameNbr = 0
-		
+
 	def createWidgets(self):
 		"""Build GUI."""
 		# Create Setup button
@@ -122,7 +122,7 @@ class ClienteGUI:
 		self.rtpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		
 		# Set the timeout value of the socket to 0.5sec
-		self.rtpSocket.settimeout(0.5)
+		self.rtpSocket.settimeout(10)
 		
 		try:
 			# Bind the socket to the address using the RTP port

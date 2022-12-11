@@ -31,7 +31,7 @@ def request_video():
 
 
     #id;nome-video
-    msg = "1;movie.Mjpeg"
+    msg = "movie.Mjpeg"
     s.sendto(msg.encode('utf-8'), (neighbours[0],5000))
     threading.Thread(target=recv_video_processing,args=[s]).start()
 

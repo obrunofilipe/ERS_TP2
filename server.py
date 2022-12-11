@@ -2,30 +2,33 @@ import socket
 import threading
 import time
 import json
+import sys
 import monitoring
 import Servidor
 difusion_node = "10.0.5.1"
-id = '1'  
-endereco = "10.0.11.10"
+id = ""
 neighbours = []
+probe_round = 0
 
 def get_neighbours():
     f = open("config_topologia_teste_2.json")
     n = json.load(f)
     global neighbours
     neighbours = n['servers'][id]
+    print("Server neighbours", neighbours)
+
 
 
 def request_video_processing(s : socket, msg : bytes, add : tuple):
     print("RECEBI UM PEDIDO", msg)
-    server = Servidor.Servidor(msg.decode('utf-8').split(";")[1], neighbours[0])
+    server = Servidor.Servidor(msg.decode('utf-8').split(";")[0], neighbours[0])
     server.main()
 
 def request_video_service():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     port = 5000
-    s.bind((endereco, port))
-    print(f"Estou à escuta no {endereco}:{port}")
+    s.bind(('', port))
+    print(f"Estou à escuta na porta: {port}")
 
     while True:
         msg, add = s.recvfrom(1024)
@@ -59,9 +62,9 @@ def bootstrap_service():
 
     port = 2000
 
-    s.bind((endereco, port))
+    s.bind(('', port))
 
-    print(f"Estou à escuta no {endereco}:{port}")
+    print(f"Estou à escuta na porta: {port}")
 
     while True:
         msg, add = s.recvfrom(1024)
@@ -74,17 +77,20 @@ def send_probe_service():
     port = 4000
     s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
     s.bind(('',port))
-    
+    global probe_round
     while True:
-        packet = monitoring.make_probe(id, time.time(),0)
+        packet = monitoring.make_probe(id, time.time(),0, probe_round)
         for n in neighbours:
             print(f"A enviar probes para: {n}:{port}")
             s.sendto(packet,(n,port))
         time.sleep(20)
+        probe_round += 1
         
 
-       
+
 def main():
+    global id
+    id = sys.argv[1]
     get_neighbours()
     print(neighbours)
     threading.Thread(target=bootstrap_service, args=()).start()
