@@ -31,19 +31,28 @@ endereco = "10.0.11.10"
 
 incoming_server = "-1"
 
+lock = threading.Lock()
+
 def init_status():
     global interface_status
+    lock.acquire()
     for n in neighbours:
         interface_status[n] = 0 # inicializar todas as interfaces como inativas
+    lock.release()
 
 
 def min_delay():
     global incoming_server
     min = ('', 10000)
+
+    lock.acquire()
+    
     for id in monitoring_rec:
         delay = monitoring_rec[id]['delay']
         if delay < min[1]:
             min = (id, delay)
+    lock.release()
+    
     if incoming_server != min[0]:
         incoming_server = min[0]
         return True
@@ -53,9 +62,13 @@ def min_delay():
 
 def request_new_server():
     global interface_status
+
+    lock.acquire()
+    
     for id in monitoring_rec: # desativar todas as interfaces que levam a servidores
         ip = monitoring_rec[id]['ip']
         interface_status[ip] = 0
+
 
     next_step = monitoring_rec[incoming_server]['ip'] # ver qual é o próximo passo para o incoming_server
     #interface_status[next_step] = 1                   # ativar a interface desse próximo passo
@@ -65,6 +78,8 @@ def request_new_server():
         if flag == 1:
             stream_flag = True
 
+    lock.release()
+    
     if stream_flag: # só faz um novo pedido se a stream alguma vez foi pedida
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.sendto("movie.Mjpeg".encode('utf-8'),(next_step,5000))
@@ -89,6 +104,9 @@ def get_neighbours():
  
 def request_video_processing(s , msg, add):
     stream_flag = False
+
+    lock.acquire()
+    
     for (_,flag) in interface_status.items():
         if flag == 1:
             stream_flag = True
@@ -107,6 +125,8 @@ def request_video_processing(s , msg, add):
     else:
         print(f'JA TENHO O VIDEO ATIVEI A INTERFACE::: {add[0]}')
     interface_status[add[0]] = 1
+    
+    lock.release()
 
 
 
@@ -143,6 +163,8 @@ def probe_processing(s,msg,address):
    
     incoming_delay = (send_timeStamp - rcv_timeStamp) * 1e3
 
+    lock.acquire()
+
     if id in monitoring_rec:
         server_monitoring = monitoring_rec[id]
         old_delay = server_monitoring['delay']
@@ -163,10 +185,15 @@ def probe_processing(s,msg,address):
         monitoring_rec[id]['ip'] = address[0]
         print(f"Server Record {id} Criado:: delay:{incoming_delay}, steps:{steps+1}, ip:{address[0]}")
     
+    lock.release()
+
     changed = min_delay() # atualizar qual é o servidor com menor delay neste momento
 
     if changed:
         request_new_server()
+
+    
+
 
 
 
@@ -186,6 +213,9 @@ def difusion_processing(s,msg,add): #controlled flooding
 
     incoming_ip = add[0]
     delays = []
+
+    lock.acquire()
+
     for id in monitoring_rec:
         delays.append((monitoring_rec[id]['ip'], monitoring_rec[id]['delay'])) # colecionar todos os pares (ip, delay) dos vizinhos deste nodo
 
@@ -194,6 +224,8 @@ def difusion_processing(s,msg,add): #controlled flooding
         for (ip,status) in interface_status.items():
             if ip != add[0] and status:
                 s.sendto(msg,(ip,6000))
+
+    lock.release()
 
     
 

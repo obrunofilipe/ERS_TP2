@@ -10,7 +10,7 @@ class Servidor:
 
 	clientInfo = {}
 	rounds = 0
-	total_frames = 500
+	total_frames = 0
 
 	def __init__(self, video, dif_node):
 		self.filename = video
@@ -27,11 +27,12 @@ class Servidor:
 				
 			data = self.clientInfo['videoStream'].nextFrame()
 			if data:
-				frameNumber = self.clientInfo['videoStream'].frameNbr() + self.total_frames*self.rounds
+				#frameNumber = self.clientInfo['videoStream'].frameNbr() + self.total_frames*self.rounds
+				self.total_frames += 1
 				try:
 					address = self.clientInfo['rtpAddr']
 					port = int(self.clientInfo['rtpPort'])
-					packet =  self.makeRtp(data, frameNumber + self.total_frames*self.rounds)
+					packet =  self.makeRtp(data, self.total_frames) #frameNumber + self.total_frames*self.rounds)
 					self.clientInfo['rtpSocket'].sendto(packet,(address,port))
 				except:
 					print("Connection Error")
@@ -40,7 +41,7 @@ class Servidor:
 					print('-'*60)
 			else:
 				self.clientInfo['videoStream'] = VideoStream(self.filename)
-				self.rounds += 1
+				#self.rounds += 1
 		# Close the RTP socket
 		self.clientInfo['rtpSocket'].close()
 		print("All done!")

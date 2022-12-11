@@ -9,6 +9,7 @@ difusion_node = "10.0.5.1"
 id = ""
 neighbours = []
 probe_round = 0
+video_streaming = True
 
 def get_neighbours():
     f = open("config_topologia_teste_2.json")
@@ -30,9 +31,10 @@ def request_video_service():
     s.bind(('', port))
     print(f"Estou à escuta na porta: {port}")
 
-    while True:
-        msg, add = s.recvfrom(1024)
-        threading.Thread(target=request_video_processing,args=(s,msg,add)).start()
+    #while True:
+    msg, add = s.recvfrom(1024)
+    video_streaming = False
+    threading.Thread(target=request_video_processing,args=(s,msg,add)).start()
     
     s.close()
 
