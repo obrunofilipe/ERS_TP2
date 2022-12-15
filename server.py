@@ -6,10 +6,14 @@ import sys
 import monitoring
 import Servidor
 difusion_node = "10.0.5.1"
+CONFIG_FILE = "config_topologia_teste_2.json"
 id = ""
 neighbours = []
 probe_round = 0
 video_streaming = True
+
+
+# Função que permite que o servidor conheça o seu nodo de acesso
 
 def get_neighbours():
     f = open("config_topologia_teste_2.json")
@@ -19,11 +23,18 @@ def get_neighbours():
     print("Server neighbours", neighbours)
 
 
+# Função responsável por processar o pedido de vídeo
+# Ao receber um pedido de stream, este irá criar uma instância da classe Servidor que irá receber o nome do vídeo a codificar e o IP do nodo de acesso
+# e vai iniciar a codificação do vídeo e envio dos pacotes RTP para o nodo de acesso, podendo este percorrer a rede até aos clientes interessados
 
 def request_video_processing(s : socket, msg : bytes, add : tuple):
     print("RECEBI UM PEDIDO", msg)
     server = Servidor.Servidor(msg.decode('utf-8').split(";")[0], neighbours[0])
     server.main()
+
+
+# Serviço que está sempre a correr até chegar ao servidor um pedido da stream
+# Quando este chega, é então criada uma thread que irá tratar deste pedido.
 
 def request_video_service():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -38,21 +49,33 @@ def request_video_service():
     
     s.close()
 
+# Função que tem como objetivo processar um pedido de bootstrapping, ou seja, um pedido dos vizinhos que um nodo faz ao servidor
+# Perante um pedido destes, o cliente irá ler o ficheiro de configuração da topologia da rede, identificar o IP que lhe enviou o pedido
+# e irá enviar uma resposta com a lista de vizinhos desse nodo
 
 def bootstrap_processing(s : socket, msg : bytes, address : tuple):
     print(address[0],address[1])
     neighbours = send_neighbours(address[0]) #lista de vizinhos
-    message = " ".join(neighbours)
-    print(message.split(" "))
+    print("TTL:", neighbours[1])
+    message = " ".join(neighbours[0])
+    message += ";"
+    message += str(neighbours[1])
+    print(message)
     s.sendto(message.encode('utf-8'), address)  
-    
+
+# Função responsável por extrair do ficheiro de configuração a lista de vizinhos de um dado IP
 
 def send_neighbours(ip):
-    f = open("config_topologia_teste_2.json")
+    f = open(CONFIG_FILE)
     neighbours = json.load(f)
+    response = (neighbours['nodes'][ip], neighbours['TTL'])
+    print("Neighbours: ", neighbours['nodes'][ip])
+    return response
 
-    print(neighbours['nodes'][ip])
-    return neighbours['nodes'][ip]
+
+# Serviço que se encontra em execução continuamente na porta 2000 e que irá receber os pedidos que conhecimento dos vizinhos de cada nodo.
+# Recebendo um pedido destes, de modo a que este não fique indisponível durante muito tempo, lançará uma thread que será responsável por fazer o processamento
+# e envio da resposta do mesmo.
 
 def bootstrap_service():
     s : socket.socket
@@ -74,6 +97,9 @@ def bootstrap_service():
         threading.Thread(target=bootstrap_processing, args=(s, msg, add)).start()
 
     s.close()
+
+
+# Serviço que se encontra em execução contínua a fazer o envio de pacotes de prova para a rede, de forma periódica.
 
 def send_probe_service():
     port = 4000

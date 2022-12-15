@@ -6,6 +6,8 @@ import time
 
 neighbours = []
 """
+Estrutura do Estado das interfaces. 1 representa que a interface está ativa e 0 que está inativa
+
 {
     "ip" : 1/0
 }
@@ -27,11 +29,22 @@ Estrutura de monitoring:
 
 """
 monitoring_rec = {}
+
+# Endereço conhecido do servidor Master, o servidor bootstrapper
 endereco = "10.0.11.10"
 
+
+# Variável global que indica de que servidor está a chegar o fluxo de stream a este nodo
 incoming_server = "-1"
 
+# Variável global usada para evitar ciclos na difusão dos pacotes de monitorização
+PACKET_TTL = -1
+
+
 lock = threading.Lock()
+
+
+# Função de inicialização da estrutura das interfaces
 
 def init_status():
     global interface_status
@@ -40,6 +53,7 @@ def init_status():
         interface_status[n] = 0 # inicializar todas as interfaces como inativas
     lock.release()
 
+# Função que tem como objetivo descobrir qual o delay mínimo entre todos os servidores presentes na estrutura de monitorização "monitoring_rec"
 
 def min_delay():
     global incoming_server
@@ -59,6 +73,9 @@ def min_delay():
     else:
         return False
 
+
+# Função que tem como objetivo efetuar um novo pedido de stream ao próximo salto em direção ao novo servidor na situação em que o servidor ótimo deixa
+# de ser o servidor de quem o nodo está a receber a stream para o servidor alternativo a esse
 
 def request_new_server():
     global interface_status
@@ -85,6 +102,9 @@ def request_new_server():
         s.sendto("movie.Mjpeg".encode('utf-8'),(next_step,5000))
     
 
+# Função que tem como objetivo fazer o pedido da lista de vizinhos e do TTL dos pacotes de monitorização ao nodo bootstrapper
+# Recebendo os vizinhoos e um TTL, guarda-os em variáveis globais, neighbours e PACKET_TTL, respetivamente
+
 
 def get_neighbours():
     s : socket.socket
@@ -98,9 +118,18 @@ def get_neighbours():
     resposta, server_add = s.recvfrom(1024)
     
     global neighbours
-    neighbours = resposta.decode('utf-8').split(" ")
+    global PACKET_TTL
+
+    PACKET_TTL = int(resposta.decode('utf-8').split(";")[1])
+
+    print("PACKET_TTL =", PACKET_TTL)
+
+    neighbours = resposta.decode('utf-8').split(";")[0].split(" ")
 
 
+# Função responsável por processar o pedido de um vídeo chegado de um nodo cliente ou de outro nodo intermédio
+# Depois de feito o processamento, este redireciona o pedido para a interface de saída do próximo salto até ao servidor ideal e ativa a interface
+# relativa ao nodo do qual recebeu este pedido
  
 def request_video_processing(s , msg, add):
     stream_flag = False
@@ -129,6 +158,9 @@ def request_video_processing(s , msg, add):
     lock.release()
 
 
+# Serviço que se encontra sempre disponível à espera de pacotes de pedido de vídeo vindos de clientes para a porta 5000
+# Recebendo um destes pacotes, cria uma thread que vai efetuar o processamento do mesmo de forma a que possa continuar a receber pacotes sem que o serviço
+# fique indisponível
 
 def request_video_service():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -145,6 +177,10 @@ def request_video_service():
         threading.Thread(target=request_video_processing,args=(s,msg,add)).start()
 
 
+# Função que tem como objetivo processar os pacotes de prova enviados pelo servidor para a rede.
+# Recebendo um destes pacotes, depois de extrair a informação relevante, e cria outro pacote com a mesma estrutura com os dados atualizados de modo a difundi-lo
+# para todos os seus vizinhos, exceto para aquele do qual recebeu o pacote.
+
 def probe_processing(s,msg,address):
     global monitoring_rec
     metrics = msg.decode('utf-8').split(";")
@@ -158,7 +194,7 @@ def probe_processing(s,msg,address):
 
     packet = monitoring.make_probe(id,rcv_timeStamp,steps+1,probe_round) # fazer a nova probe
     for n in neighbours:
-        if n != address[0] and steps < 6:
+        if n != address[0] and steps < PACKET_TTL:
             s.sendto(packet,(n,port))
    
     incoming_delay = (send_timeStamp - rcv_timeStamp) * 1e3
@@ -195,7 +231,8 @@ def probe_processing(s,msg,address):
     
 
 
-
+# Serviço que está sempre em execução à escuta de pacotes de monitorização na porta 4000. Estes pacotes quando são recebidos são encaminhados para
+# uma thread que é criada com o propósito de processar o pacote
 
 def probe_service():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -208,6 +245,10 @@ def probe_service():
         msg, address = s.recvfrom(1024)
         print("recebi probe:",msg)
         threading.Thread(target=probe_processing,args=(s,msg,address)).start()
+
+
+# Função que permite fazer o reenvio do vídeo para os vizinhos cujas interfaces estejam ativas
+# Para o poder fazer, recorre à estrutura "interface_status"
 
 def difusion_processing(s,msg,add): #controlled flooding
 
@@ -229,6 +270,8 @@ def difusion_processing(s,msg,add): #controlled flooding
 
     
 
+# Serviço que se encontra sempre disponível na porta 6000 que trata dos pacotes de vídeo vindos de um servidor
+# Mal um pacote destes é recebido, é criada uma thread que trata do reenvio do mesmo para os seus vizinhos
 
 def difusion_service():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
